@@ -5,3 +5,4 @@
 /// <reference path="body-parser/body-parser.d.ts" />
 /// <reference path="morgan/morgan.d.ts" />
 /// <reference path="jsonwebtoken/jsonwebtoken.d.ts" />
+/// <reference path="bcrypt/bcrypt.d.ts" />

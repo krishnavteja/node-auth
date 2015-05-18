@@ -3,10 +3,14 @@
 import * as mongoose from "mongoose";
 
 interface IUser {
+    username: string;
     email: string;
     password: string;
-    displayName: string;
+    firstName: string;
+    lastName: string;
     admin: boolean;
+    
+    comparePassword: any;
 };
 
 interface IUserModel extends IUser, mongoose.Document { }

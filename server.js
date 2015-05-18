@@ -14,27 +14,37 @@ app.set('superSecret', config_1.config.secret);
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(morgan('dev'));
+app.use(function (req, res, next) {
+    for (var key in req.query) {
+        req.query[key.toLowerCase()] = req.query[key];
+    }
+    next();
+});
 app.get('/', function (req, res) {
     res.send('Hello! The API is at http://localhost:' + port + '/api');
 });
-app.get('/setup', function (req, res) {
+var apiRoutes = express.Router();
+apiRoutes.post('/newuser', function (req, res) {
     var newUser = new user_1.User({
-        email: 'ktvonline@live.com',
-        displayName: 'Krishna V',
-        password: 'P@ssword1',
-        admin: true
+        username: req.body.username,
+        email: req.body.email,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        password: req.body.password,
+        admin: req.body.admin ? req.body.admin : false
     });
     newUser.save(function (err) {
-        if (err)
+        if (err) {
+            console.log(err);
             throw err;
+        }
         console.log('User saved successfully');
         res.json({ success: true });
     });
 });
-var apiRoutes = express.Router();
 apiRoutes.post('/authenticate', function (req, res) {
     user_1.User.findOne({
-        email: req.body.email
+        username: req.body.username
     }, function (err, user) {
         if (err)
             throw err;
@@ -42,19 +52,26 @@ apiRoutes.post('/authenticate', function (req, res) {
             res.json({ success: false, message: 'Authentication failed. User not found.' });
         }
         else if (user) {
-            if (user.password != req.body.password) {
-                res.json({ success: false, message: 'Authentication failed. Wrong password.' });
-            }
-            else {
-                var token = jwt.sign(user, app.get('superSecret'), {
-                    expiresInMinutes: 1440
-                });
-                res.json({
-                    success: true,
-                    message: 'Enjoy your token!',
-                    token: token
-                });
-            }
+            console.log(user.comparePassword);
+            user.comparePassword(req.body.password, function (err, isMatch) {
+                if (err) {
+                    console.log(err);
+                    throw err;
+                }
+                if (!isMatch) {
+                    res.json({ success: false, message: 'Authentication failed. Wrong password' });
+                }
+                else {
+                    var token = jwt.sign(user, app.get('superSecret'), {
+                        expiresInMinutes: 1440
+                    });
+                    res.json({
+                        success: true,
+                        message: 'Enjoy your token!',
+                        token: token
+                    });
+                }
+            });
         }
     });
 });

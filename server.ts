@@ -29,6 +29,15 @@ app.use(bodyParser.json());
 // use morgan to log requests to the console
 app.use(morgan('dev'));
 
+// insert this before your routes
+app.use((req, res, next)  => {
+  for (var key in req.query)
+  { 
+    req.query[key.toLowerCase()] = req.query[key];
+  }
+  next();
+});
+
 // =======================
 // routes ================
 // =======================
@@ -38,35 +47,40 @@ app.get('/',(req, res) => {
 });
 
 // API ROUTES -------------------
-app.get('/setup', (req, res) => {
-    
-  // create a sample user
-  var newUser = new User({ 
-    email: 'ktvonline@live.com',
-    displayName: 'Krishna V', 
-    password: 'P@ssword1',
-    admin: true 
-  });
-
-  // save the sample user
-  newUser.save((err) => {
-    if (err) throw err;
-
-    console.log('User saved successfully');
-    res.json({ success: true });
- });
- 
-});
-
 // get an instance of the router for api routes
 var apiRoutes = express.Router(); 
+
+// route to authenticate a user (POST http://localhost:8080/api/authenticate)
+apiRoutes.post('/newuser', (req, res) => {
+     // create a sample user
+  var newUser = new User({ 
+    username: req.body.username,
+    email: req.body.email,
+    firstName: req.body.firstName, 
+    lastName:req.body.lastName,
+    password: req.body.password,
+    admin: req.body.admin ? req.body.admin : false 
+  });
+    
+      // save the sample user
+      newUser.save((err) => {
+        if (err)
+        {
+          console.log(err);
+          throw err;
+        } 
+    
+        console.log('User saved successfully');
+        res.json({ success: true });
+     });
+   });
 
 // route to authenticate a user (POST http://localhost:8080/api/authenticate)
 apiRoutes.post('/authenticate', (req, res) => {
 
   // find the user
   User.findOne({
-    email: req.body.email
+    username: req.body.username
   }, (err, user) => {
 
     if (err) throw err;
@@ -74,30 +88,42 @@ apiRoutes.post('/authenticate', (req, res) => {
     if (!user) {
       res.json({ success: false, message: 'Authentication failed. User not found.' });
     } else if (user) {
-
-      // check if password matches
-      if (user.password != req.body.password) {
-        res.json({ success: false, message: 'Authentication failed. Wrong password.' });
-      } else {
-
-        // if user is found and password is right
-        // create a token
-        var token = jwt.sign(user, app.get('superSecret'), {
-          expiresInMinutes: 1440 // expires in 24 hours
-        });
-
-        // return the information including token as JSON
-        res.json({
-          success: true,
-          message: 'Enjoy your token!',
-          token: token
-        });
-      }   
-
+      
+     console.log(user.comparePassword);
+      
+      // test a matching password
+    user.comparePassword(req.body.password, function(err, isMatch) {
+        if (err) 
+        {
+          console.log(err);
+          throw err;
+        }
+        
+        if(!isMatch)
+        {
+          res.json({ success: false, message: 'Authentication failed. Wrong password' });
+        }
+        else
+        {
+          // if user is found and password is right
+          // create a token
+          var token = jwt.sign(user, app.get('superSecret'), {
+            expiresInMinutes: 1440 // expires in 24 hours
+          });
+  
+          // return the information including token as JSON
+          res.json({
+            success: true,
+            message: 'Enjoy your token!',
+            token: token
+          });
+        }
+    });
     }
 
   });
 });
+
 
 // route middleware to verify a token
 apiRoutes.use((req:any, res, next) => {
